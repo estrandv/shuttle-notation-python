@@ -5,7 +5,7 @@ description = "Python implementation of the Shuttle Notation standard."
 readme = "README.md"
 authors = [{ name = "Emil Strandvik" }]
 license = { text = "Apache-2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = []
 
