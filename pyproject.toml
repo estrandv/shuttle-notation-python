@@ -1,0 +1,10 @@
+[project]
+name = "shuttle-notation-python"
+version = "1.0"
+description = "Python implementation of the Shuttle Notation standard."
+readme = "README.md"
+authors = [{ name = "Emil Strandvik" }]
+license = { text = "Apache-2.0" }
+requires-python = ">=3.4"
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+dependencies = []
