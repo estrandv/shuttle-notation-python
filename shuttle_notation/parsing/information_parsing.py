@@ -86,6 +86,8 @@ def divide_information(element: Element) -> ElementInformation:
 
                 remaining = cursor.get_remaining() 
 
+                print("Remaining", remaining)
+
                 star_index = remaining.find("*")
                 colon_index = remaining.find(":")
 
@@ -109,10 +111,10 @@ def divide_information(element: Element) -> ElementInformation:
                 if ":" in remaining:
                     information.repetition = int(cursor.get_until(":"))
                     cursor.move_past_next(":")
+                    current_part = InformationPart.ARGS
                 elif remaining != "":
                     information.repetition = int(remaining)
-
-                current_part = InformationPart.ARGS
+                    break 
 
             case InformationPart.ARGS:
                 if not cursor.is_done():
@@ -135,6 +137,7 @@ class DynamicArg:
 # Aliases, provided as {alias:name}, changes <alias> into <name> where
 #   keys match. 
 def parse_args(arg_source, aliases: dict = {}) -> dict:
+
     args = {}
 
     cursor = Cursor(arg_source)

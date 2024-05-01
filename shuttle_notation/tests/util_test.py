@@ -25,6 +25,7 @@ def test_all():
     assert_expanded("2*3 / (a / b)", "2*3 2*3 2*3 a 2*3 2*3 2*3 b")    
     assert_expanded("t / (a / b)*3", "t a b a t b a b")
     assert_expanded("t / (f ((a / b)))*2", "t f a f b t f a f b")
+    assert_expanded("0*3 (1 / 2)", "0*3 0*3 0*3 1 0*3 0*3 0*3 2")
 
     assert_expanded("a (b / c / d)*3", "a b c d")
 
