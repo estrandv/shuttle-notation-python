@@ -41,12 +41,3 @@ class Parser:
             case _:
                 raise Exception("Only ATOMIC elements can be resolved!")
 
-# Run tests if ran standalone 
-if __name__ == "__main__":
-    
-    # Test aliases and defaults  
-    parser = Parser() 
-    parser.arg_aliases = {">": "sus"}
-    parser.arg_defaults = {"sus": Decimal("1.0")}
-    res = parser.parse("0:>0.5")
-    assert res[0].args["sus"] == Decimal("0.5"), res[0].args
