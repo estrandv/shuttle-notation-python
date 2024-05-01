@@ -4,11 +4,11 @@ Parsing logic related to "()"-sections, "/"-alternation and "x"-repetition.
 
 """
 
-import util 
-from cursor import Cursor
-from element import Element, ElementType
+from shuttle_notation.parsing.element import Element, ElementType
+from shuttle_notation.parsing.cursor import Cursor
+import shuttle_notation.parsing.util as util
+
 import json 
-import pytest 
 
 # Divides string into Elements, arranged in a tree structure
 #   as dictated by section syntax. 

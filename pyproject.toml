@@ -12,5 +12,5 @@ dependencies = []
 # Allows tests to import from lower dirs without prefixing the main module
 [tool.pytest.ini_options]
 pythonpath = [
-  "shuttle_notation"
+  "shuttle_notation/parsing"
 ]

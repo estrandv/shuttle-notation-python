@@ -4,12 +4,12 @@
 
 """
 
-from enum import Enum
-from cursor import Cursor
 from dataclasses import dataclass
+from enum import Enum
 from decimal import Decimal
-from element import Element, ElementType
-import pytest 
+
+from shuttle_notation.parsing.cursor import Cursor
+from shuttle_notation.parsing.element import Element, ElementType
 
 """
     TODO: Discussion on requirements. 

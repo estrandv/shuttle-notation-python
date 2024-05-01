@@ -1,9 +1,8 @@
-import information_parsing
-import section_parsing
-
-from element import Element, ElementType, ResolvedElement
-import element
-import util
+import shuttle_notation.parsing.information_parsing as information_parsing
+import shuttle_notation.parsing.section_parsing as section_parsing
+from shuttle_notation.parsing.element import Element, ElementType, ResolvedElement
+import shuttle_notation.parsing.util as util
+ 
 from dataclasses import dataclass
 from decimal import Decimal
 

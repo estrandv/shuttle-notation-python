@@ -1,7 +1,8 @@
-from element import ElementType
-from cursor import Cursor 
-import section_parsing
-import information_parsing
+from shuttle_notation.parsing.element import ElementType
+from shuttle_notation.parsing.cursor import Cursor 
+import shuttle_notation.parsing.section_parsing as section_parsing
+import shuttle_notation.parsing.information_parsing as information_parsing
+
 from decimal import Decimal
 
 # "Business logic" - explain later 
