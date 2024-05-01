@@ -1,5 +1,6 @@
 # Shuttle Notation 
-Shuttle Notation is a shorthand script for defining sequential data, with a similar purpose to sheet music.
+Shuttle Notation is a shorthand script for defining sequential data, 
+	with a similar purpose to sheet music.
 
 Shuttle Notation was designed to:
 1. Define sequences of varying complexity quickly, in simple text strings; be easy to type. 
