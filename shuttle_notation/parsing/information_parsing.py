@@ -86,8 +86,6 @@ def divide_information(element: Element) -> ElementInformation:
 
                 remaining = cursor.get_remaining() 
 
-                print("Remaining", remaining)
-
                 star_index = remaining.find("*")
                 colon_index = remaining.find(":")
 
