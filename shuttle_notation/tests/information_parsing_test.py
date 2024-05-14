@@ -57,6 +57,7 @@ def test_all():
     divide_test("", "", "", "", 1, "")
     divide_test("a", "", "", "a", 1, "")
     divide_test("prefix33suf*3:arg0.1,arf0.2", "prefix", "33", "suf", 3, "arg0.1,arf0.2")
+    divide_test("x:16", "", "", "x", 1, "16")
 
     stest = divide_information(make_element(":fff", ElementType.SECTION))
     assert stest.prefix == ""

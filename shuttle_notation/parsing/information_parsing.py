@@ -57,7 +57,11 @@ def divide_information(element: Element) -> ElementInformation:
     while True:
         match current_part:
             case InformationPart.PREFIX:
-                if not cursor.contains_any(NUMBERS):
+
+                before_colon = element.information.split(":")[0]
+                smol_cursor = Cursor(before_colon)
+                
+                if not smol_cursor.contains_any(NUMBERS):
                     current_part = InformationPart.SUFFIX
                     # NOTE: Implicit straight-to-suffix on no number
                     # Below is the error we used to throw: 
