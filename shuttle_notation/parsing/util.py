@@ -1,4 +1,4 @@
-from shuttle_notation.parsing.element import ElementType
+from shuttle_notation.parsing.element import ElementType, Element
 from shuttle_notation.parsing.cursor import Cursor 
 import shuttle_notation.parsing.section_parsing as section_parsing
 import shuttle_notation.parsing.information_parsing as information_parsing
@@ -47,13 +47,14 @@ class TreeExpander:
     # Count how many times one would have to use the element to fully expand it and its children. 
     def count_required_alternations(self, element):
 
-        base = 1
         
+        # NOTE: Alternations require recursive counting in case they have nested alternations. 
+        # Regular sections expand all-at-once and do not require multiple ticks.  
         if element.type == ElementType.ALTERNATION_SECTION:
-            base = len(element.elements)
+            # Max of [AC, 1]
+            return len(element.elements) * max([self.count_required_alternations(ele) for ele in element.elements] + [1])
 
-        # Max of [AC, 1]
-        return base * max([self.count_required_alternations(ele) for ele in element.elements] + [1])
+        return 1
 
     def all_ticked(self, element) -> bool:
         element_ticks = self.get_ticks(element)
@@ -67,17 +68,22 @@ class TreeExpander:
             if not self.all_ticked(child):
                 children_ok = False
 
-        #print("Ticked", element_ticks, "required", required_ticks)
-        
-        return element_ticks >= required_ticks and children_ok
+        print("Ticked", element_ticks, "required", required_ticks)
+
+        ok = element_ticks >= required_ticks and children_ok
+        return ok
 
     def tree_expand(self, element) -> list:
+
         full = []
 
-        while not self.all_ticked(element):
-            full += self.expand(element, get_repeat(element))
+        # NOTE: Workaround. Parsing correctly assumes top level to be an alternation if it contains "/", but recursive logic
+        #   expects top level to be a regular section. 
+        top_section = Element()
+        top_section.type = ElementType.SECTION
+        top_section.elements = [element]
 
-        return full
+        return self.expand(top_section, 1)
 
     # Tick off an element, so that we can count how many times we have done so. 
     # Alternations must be used several times to fully expand, hence the need to count. 
@@ -92,23 +98,36 @@ class TreeExpander:
     # Expand both alternations and repeats 
     def expand(self, element, repeat) -> list:
 
+        #print("EXPANDING: ", element.decompile(), " ", element.type, len(element.elements))
+
         if element.type == ElementType.ATOMIC:
             self.tick(element)
             return duplicate([element], repeat) 
         if element.type == ElementType.SECTION:
+
+            # Expand all children, including ticking self until all nested alternations are done 
             flatmap = []
-            for _ in range(0, repeat):
+
+            while True:
                 self.tick(element)
                 matrix = [self.expand(e, get_repeat(e)) for e in element.elements]
                 for c in matrix:
                     for r in c:
                         flatmap.append(r)
-            return flatmap 
+
+                # Check after ticking, to ensure that all children are always iterated at least once 
+                if self.all_ticked(element):
+                    break
+
+            # Repeat the collected flatmap afterwards, to avoid duplicate ticks
+            return duplicate(flatmap, repeat)
+
         if element.type == ElementType.ALTERNATION_SECTION:
 
             # Repeat the alternation as required, grabbing the next alternation each time
             full = [] 
             for i in range(0, repeat):
+
                 # Tick element and return amount of times it has been ticked            
                 ticks = self.get_ticks(element)
                 self.tick(element)

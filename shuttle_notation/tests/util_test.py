@@ -9,25 +9,40 @@ def test_all():
 
     tree = TreeExpander()
 
-    # Quick assertion of atomic elements after a full tree alternations expand    
-    # Mixing in some parse logic for faster testing ...     
-    def assert_expanded(parse_source, expect):
-        top_element = section_parsing.build_tree(parse_source)
-        tree_expand_string = " ".join([e.information for e in tree.tree_expand(top_element)])
-        assert tree_expand_string == expect, tree_expand_string
+    # Test tree expansion in bulk
+    chunk = """
 
-    assert_expanded("1 (2 / (3 4 / (5 / 6)))", "1 2 1 3 4 1 2 1 5 1 2 1 3 4 1 2 1 6")
+        2*3 => 2*3 2*3 2*3
+        (1 2 3 4)*2 => 1 2 3 4 1 2 3 4
+        (t (a / b))*2 => t a t b t a t b
+        f / (a / b) => f a f b
+        1 (2 / (3 4 / (5 / 6))) => 1 2 1 3 4 1 2 1 5 1 2 1 3 4 1 2 1 6
+        2*3 / (a / b) => 2*3 2*3 2*3 a 2*3 2*3 2*3 b
+        t / (a / b)*3 => t a b a t b a b
+        t / (f (a / b)) => t f a f b
+                NOTABLE: "t f a t f b" feels more natural, but sections will always fully expand.
+                
+                Can you write the natural in a different way? 
 
-    # Repeat testing
-    assert_expanded("2*3", "2*3 2*3 2*3")
-    assert_expanded("(1 2)*2", "1 2 1 2")
-    assert_expanded("t / (a / b)", "t a t b")
-    assert_expanded("2*3 / (a / b)", "2*3 2*3 2*3 a 2*3 2*3 2*3 b")    
-    assert_expanded("t / (a / b)*3", "t a b a t b a b")
-    assert_expanded("t / (f ((a / b)))*2", "t f a f b t f a f b")
-    assert_expanded("0*3 (1 / 2)", "0*3 0*3 0*3 1 0*3 0*3 0*3 2")
+                (t f (a / b)) yep 
 
-    assert_expanded("a (b / c / d)*3", "a b c d")
+        (t / (f (a / b))*2) => t f a f b f a f b
+        f (g / a) => f g f a
+        0*3 (1 / 2) => 0*3 0*3 0*3 1 0*3 0*3 0*3 2
+
+        a (b / c / d)*3 => a b c d
+
+"""
+
+    for line in chunk.split("\n"):
+        pure = line.strip() 
+        if pure != "" and " => " in pure:
+            arrow_split = pure.split(" => ")
+            parse = arrow_split[0]
+            expected = arrow_split[1]
+            top_element = section_parsing.build_tree(parse)
+            tree_expand_string = " ".join([e.information for e in tree.tree_expand(top_element)])
+            assert tree_expand_string == expected, tree_expand_string
 
     # Arg resolution testing
 
