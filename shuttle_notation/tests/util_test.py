@@ -32,6 +32,8 @@ def test_all():
 
         a (b / c / d)*3 => a b c d
 
+        (a (b / c))*2 (f)*4 => a b a c a b a c f f f f
+
 """
 
     for line in chunk.split("\n"):
@@ -67,11 +69,15 @@ def test_all():
     arg_tree_test("a3:aa0.2,ab+0.2,ac-0.2", {
         "aa": Decimal("0.2"),
         "ab": Decimal("0.2"),
-        "ac": Decimal("0.2")
+        "ac": Decimal("-0.2")
     })
 
     arg_tree_test("0:a+0.1 0:a+0.1 0:a+0.1", {
             "a": Decimal("0.3")
+    })
+
+    arg_tree_test("0:a-0.1", {
+            "a": Decimal("-0.1")
     })
         
     arg_tree_test("0:a+0.1 0:a*0.5 0:a2.0", {

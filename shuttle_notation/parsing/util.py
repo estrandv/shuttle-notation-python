@@ -68,8 +68,6 @@ class TreeExpander:
             if not self.all_ticked(child):
                 children_ok = False
 
-        print("Ticked", element_ticks, "required", required_ticks)
-
         ok = element_ticks >= required_ticks and children_ok
         return ok
 
@@ -210,7 +208,10 @@ def resolve_full_arguments(
                         resolved_args[dynamic_arg_key] = dynamic_arg.value
             else:
                 # Introduce without any operators if no higher level version exists
-                resolved_args[dynamic_arg_key] = dynamic_arg.value
+
+                # Note that a negation operator can also just mean a flat negative
+                flat_value = dynamic_arg.value * -1 if dynamic_arg.operator == "-" else dynamic_arg.value
+                resolved_args[dynamic_arg_key] = flat_value
 
     return resolved_args
 
