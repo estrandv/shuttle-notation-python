@@ -54,6 +54,11 @@ def test_all():
     h1 = [i.suffix for i in get_information_history(child)]
     assert h1 == ["a", "b", "c", ""], h1
 
+    g2 = section_parsing.build_tree("(3 (0a / 1) 4)c")
+    child = g2.elements[0].elements[1].elements[0]
+    h1 = [i.suffix for i in get_information_history(child)]
+    assert h1 == ["a", "", "c", ""], h1
+
     # Fake an information history using bastardized parsing 
     def build_arg_array(source):
         elements = section_parsing.build_tree(source).elements

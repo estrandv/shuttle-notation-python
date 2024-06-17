@@ -182,7 +182,7 @@ def resolve_full_arguments(
     # Append the default args as root 
     dyn_default_args = {}
     for key in default_args:
-        dyn_default_args[key] = information_parsing.DynamicArg(default_args[key])
+        dyn_default_args[key] = information_parsing.DynamicArg(Decimal(default_args[key]))
     all_arg_dicts.append(dyn_default_args)
 
     # Reverse priority order; begin with topmost/root args. 
