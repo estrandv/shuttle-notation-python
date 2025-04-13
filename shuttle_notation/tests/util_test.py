@@ -1,7 +1,7 @@
-import pytest 
+import pytest
 from util import *
 
-# TODO: Split into proper tests 
+# TODO: Split into proper tests
 def test_all():
     assert section_split("a b c") == ["a", "b", "c"]
     assert section_split("a (f) c") == ["a", "(f)", "c"]
@@ -21,10 +21,10 @@ def test_all():
         t / (a / b)*3 => t a b a t b a b
         t / (f (a / b)) => t f a f b
                 NOTABLE: "t f a t f b" feels more natural, but sections will always fully expand.
-                
-                Can you write the natural in a different way? 
 
-                (t f (a / b)) yep 
+                Can you write the natural in a different way?
+
+                (t f (a / b)) yep
 
         (t / (f (a / b))*2) => t f a f b f a f b
         f (g / a) => f g f a
@@ -37,7 +37,7 @@ def test_all():
 """
 
     for line in chunk.split("\n"):
-        pure = line.strip() 
+        pure = line.strip()
         if pure != "" and " => " in pure:
             arrow_split = pure.split(" => ")
             parse = arrow_split[0]
@@ -48,7 +48,7 @@ def test_all():
 
     # Arg resolution testing
 
-    ### Verify history logic 
+    ### Verify history logic
     grandparent = section_parsing.build_tree("((0a)b)c")
     child = grandparent.elements[0].elements[0].elements[0]
     h1 = [i.suffix for i in get_information_history(child)]
@@ -59,7 +59,7 @@ def test_all():
     h1 = [i.suffix for i in get_information_history(child)]
     assert h1 == ["a", "", "c", ""], h1
 
-    # Fake an information history using bastardized parsing 
+    # Fake an information history using bastardized parsing
     def build_arg_array(source):
         elements = section_parsing.build_tree(source).elements
         return [information_parsing.divide_information(e) for e in elements]
@@ -69,12 +69,17 @@ def test_all():
         args = resolve_full_arguments(history, defaults, aliases)
 
         for key in expected_dict:
-            assert args[key] == expected_dict[key], args[key]
+            assert args[key] == expected_dict[key], "Arg has wrong value: " + key
 
     arg_tree_test("a3:aa0.2,ab+0.2,ac-0.2", {
         "aa": Decimal("0.2"),
         "ab": Decimal("0.2"),
         "ac": Decimal("-0.2")
+    })
+
+    arg_tree_test("1:ca0.2,cb2ca", {
+        "ca": Decimal("0.2"),
+        "cb": Decimal("0.4")
     })
 
     arg_tree_test("0:a+0.1 0:a+0.1 0:a+0.1", {
@@ -84,14 +89,14 @@ def test_all():
     arg_tree_test("0:a-0.1", {
             "a": Decimal("-0.1")
     })
-        
+
     arg_tree_test("0:a+0.1 0:a*0.5 0:a2.0", {
             "a": Decimal("1.1")
     })
-    
+
     arg_tree_test("0:a0.2 0:a*44 0:a1", {
             "a": Decimal("0.2")
-    })    
+    })
 
     # Simple default
     arg_tree_test("0", {

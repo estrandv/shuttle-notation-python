@@ -1,6 +1,6 @@
 """
 
-    Parsing related to single-element string-parts. 
+    Parsing related to single-element string-parts.
 
 """
 
@@ -12,18 +12,18 @@ from shuttle_notation.parsing.cursor import Cursor
 from shuttle_notation.parsing.element import Element, ElementType
 
 """
-    TODO: Discussion on requirements. 
+    TODO: Discussion on requirements.
     - Can index be a float?
-    - When do we need symbols -instead- of an index? 
+    - When do we need symbols -instead- of an index?
     - How do we denote e.g. "mod note number of playing note"? Suffix? Symbol?
-        -> Ideally we always have a number, with suffix containing an extra symbol  
-    - Should it even be possible to have a suffix without an index? If so, how? 
-        -> Possible for section, of course, but not atomic 
+        -> Ideally we always have a number, with suffix containing an extra symbol
+    - Should it even be possible to have a suffix without an index? If so, how?
+        -> Possible for section, of course, but not atomic
 
 """
 @dataclass
 class ElementInformation:
-    prefix: str = "" # Contents prior to first numeric or special symbol 
+    prefix: str = "" # Contents prior to first numeric or special symbol
     index_string: str = "" # First numeric or special symbol
     suffix: str = "" # Contents after first numeric or special symbol
     repetition: int = 1 # Contents after "*", but before ":"
@@ -38,15 +38,15 @@ class InformationPart(Enum):
 
 def divide_information(element: Element) -> ElementInformation:
 
-    # Initiate with blank defaults 
-    information = ElementInformation() 
+    # Initiate with blank defaults
+    information = ElementInformation()
 
-    # Sections start at suffix; they have no prefix or index 
+    # Sections start at suffix; they have no prefix or index
     current_part = InformationPart.SUFFIX \
         if element.type in [ElementType.SECTION, ElementType.ALTERNATION_SECTION] \
         else InformationPart.PREFIX
 
-    # Return blank when no information string is provided 
+    # Return blank when no information string is provided
     if element.information == "":
         return information
 
@@ -60,18 +60,18 @@ def divide_information(element: Element) -> ElementInformation:
 
                 before_colon = element.information.split(":")[0]
                 smol_cursor = Cursor(before_colon)
-                
+
                 if not smol_cursor.contains_any(NUMBERS):
                     current_part = InformationPart.SUFFIX
                     # NOTE: Implicit straight-to-suffix on no number
-                    # Below is the error we used to throw: 
+                    # Below is the error we used to throw:
                     #raise Exception("Malformed input - element information has no index: " + element.information)
                 else:
-                
+
                     until_number = cursor.get_until(NUMBERS)
                     information.prefix = until_number
 
-                    # NOTE: Cursor weakness - if first character matches get_until we don't stop "before it" 
+                    # NOTE: Cursor weakness - if first character matches get_until we don't stop "before it"
                     if cursor.get() not in NUMBERS:
                         cursor.next()
 
@@ -79,22 +79,22 @@ def divide_information(element: Element) -> ElementInformation:
 
             case InformationPart.INDEX:
                 information.index_string = cursor.get_until("0123456789", False)
-                
+
                 # NOTE: Again, cursor weakness
                 if cursor.get() in NUMBERS:
                     cursor.next()
 
                 current_part = InformationPart.SUFFIX
-            
+
             case InformationPart.SUFFIX:
 
-                remaining = cursor.get_remaining() 
+                remaining = cursor.get_remaining()
 
                 star_index = remaining.find("*")
                 colon_index = remaining.find(":")
 
-                # Since * can appear inside args, we need to check for it before arg declaration 
-                star_present = star_index != -1 and (star_index < colon_index or colon_index == -1) 
+                # Since * can appear inside args, we need to check for it before arg declaration
+                star_present = star_index != -1 and (star_index < colon_index or colon_index == -1)
 
                 if star_present:
                     information.suffix = cursor.get_until("*")
@@ -106,23 +106,23 @@ def divide_information(element: Element) -> ElementInformation:
                     current_part = InformationPart.ARGS
                 else:
                     information.suffix = remaining
-                    break 
+                    break
 
             case InformationPart.REPETITION:
-                remaining = cursor.get_remaining() 
+                remaining = cursor.get_remaining()
                 if ":" in remaining:
                     information.repetition = int(cursor.get_until(":"))
                     cursor.move_past_next(":")
                     current_part = InformationPart.ARGS
                 elif remaining != "":
                     information.repetition = int(remaining)
-                    break 
+                    break
 
             case InformationPart.ARGS:
                 if not cursor.is_done():
                     information.arg_source = cursor.get_remaining()
 
-                break 
+                break
 
             case _:
                 # Shouldn't happen but w/e
@@ -134,43 +134,55 @@ def divide_information(element: Element) -> ElementInformation:
 class DynamicArg:
     value: Decimal
     operator: str = ""
+    other_arg_reference: str = ""
 
-# Parse 1.0,arg+2,argb*2.0,argc0.2 [...] part of element info suffix 
+# Parse 1.0,arg+2,argb*2.0,argc0.2 [...] part of element info suffix
 # Aliases, provided as {alias:name}, changes <alias> into <name> where
-#   keys match. 
+#   keys match.
 def parse_args(arg_source, aliases: dict = {}) -> dict:
 
     args = {}
 
     cursor = Cursor(arg_source)
-    while True: 
-        # Step on separator at a time 
+    while True:
+        # Step on separator at a time
         content = cursor.get_until(",")
 
         sub_cursor = Cursor(content)
         # Numbers or operators break the key part
-        # TODO: Consider ".2" shorthand support 
-        non_numeric = sub_cursor.get_until("0123456789+-*")
+        # TODO: Consider ".2" shorthand support
+        non_numeric = sub_cursor.get_until("0123456789+-*=")
 
-        # Step into the numeric part of the string unless it began immediately 
+        # Step into the numeric part of the string unless it began immediately
         if sub_cursor.peek() != "" and non_numeric != "":
             sub_cursor.next()
 
-        numeric = sub_cursor.get_remaining()
+        value_part = sub_cursor.get_remaining()
 
-        if numeric != "": 
+        if value_part != "":
 
-            num = "".join(numeric[1:]) if numeric[0] in "+-*" else numeric
-            sym = numeric[0] if numeric[0] in "+-*" else ""    
+            actual_value = "".join(value_part[1:]) if value_part[0] in "+-*=" else value_part
+            sym = value_part[0] if value_part[0] in "+-*=" else ""
 
-            numeric_decimal = Decimal(num)
+            # Find letter arg reference suffix after numerical part
+            lil_cursor = Cursor(actual_value)
+            # TODO: I mean "get until not" would of course be more intuitive
+            # ... but we should replace this whole thing with regex eventually
+            num_value = lil_cursor.get_until("abcdefghijklmnopqrstuvxyz")
+            ref_part = ""
+            if lil_cursor.peek() != "" and num_value != "":
+                lil_cursor.next()
+                # As in: sus1.0relT -> relT
+                ref_part = lil_cursor.get_remaining()
 
-            new_arg = DynamicArg(numeric_decimal, sym)
+            numeric_decimal = Decimal(num_value)
+
+            new_arg = DynamicArg(numeric_decimal, sym, ref_part)
 
             if non_numeric == "":
                 if len(args) == 0:
-                    # TODO: Some other way to provide this default 
-                    # First arg is "time" unless otherwise noted 
+                    # TODO: Some other way to provide this default
+                    # First arg is "time" unless otherwise noted
                     args["time"] = new_arg
                 else:
                     raise Exception("Malformed input: unnamed non-first arg")
@@ -183,7 +195,6 @@ def parse_args(arg_source, aliases: dict = {}) -> dict:
 
         cursor.move_past_next(",")
         if cursor.is_done():
-            break 
+            break
 
-    return args 
-
+    return args
