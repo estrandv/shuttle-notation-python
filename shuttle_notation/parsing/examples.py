@@ -1,9 +1,9 @@
 # Workshop file, used for manual testing and planning
-from full_parse import Parser
+from shuttle_notation.parsing.full_parse import Parser
 
 # Run the whole intended sequence of parsing, from source to final elements 
 parser = Parser() 
-resolved = parser.parse("a3*3:2.0 (d3 / g3:*0.5 / d3 / c4):0.5")
+resolved = parser.parse("a3*3:2.0 (d3 / g3:sus*0.5 / d3 / c4):0.5")
 print(" ".join([e.to_str() for e in resolved]))
 
 parser.arg_aliases = {">": "sus", "!": "amp"}
@@ -20,6 +20,6 @@ print(" ".join([e.to_str() for e in resolved]))
 # - Make POC for actual synth sending 
 #   -> First, make a proper library as a separate repo and pip install it 
 
-# - Add "_" or "." as a valid standin for index (perhaps it lready works?)
+# - Add "_" or "." as a valid standin for index (perhaps it already works?)
 empty = parser.parse(". . .")
 print(empty[0].suffix) # Dead symbol always suffix, 0-default for index
