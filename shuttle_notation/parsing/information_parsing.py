@@ -1,33 +1,17 @@
-"""
-
-    Parsing related to single-element string-parts.
-
-"""
-
 from dataclasses import dataclass
 from enum import Enum
 from decimal import Decimal
+import re
 
-from shuttle_notation.parsing.cursor import Cursor
 from shuttle_notation.parsing.element import Element, ElementType
 
-"""
-    TODO: Discussion on requirements.
-    - Can index be a float?
-    - When do we need symbols -instead- of an index?
-    - How do we denote e.g. "mod note number of playing note"? Suffix? Symbol?
-        -> Ideally we always have a number, with suffix containing an extra symbol
-    - Should it even be possible to have a suffix without an index? If so, how?
-        -> Possible for section, of course, but not atomic
-
-"""
 @dataclass
 class ElementInformation:
-    prefix: str = "" # Contents prior to first numeric or special symbol
-    index_string: str = "" # First numeric or special symbol
-    suffix: str = "" # Contents after first numeric or special symbol
-    repetition: int = 1 # Contents after "*", but before ":"
-    arg_source: str = "" # Final contents, after ":"
+    prefix: str = ""
+    index_string: str = ""
+    suffix: str = ""
+    repetition: int = 1
+    arg_source: str = ""
 
 class InformationPart(Enum):
     PREFIX = 0
@@ -36,99 +20,34 @@ class InformationPart(Enum):
     REPETITION = 3
     ARGS = 4
 
+_ATOMIC_RE = re.compile(r'^([a-zA-Z_]*)(\d+)(.*?)(?:\*(\d+))?(?::(.*))?$')
+_SECTION_RE = re.compile(r'^(.*?)(?:\*(\d+))?(?::(.*))?$')
+
 def divide_information(element: Element) -> ElementInformation:
+    info = ElementInformation()
+    text = element.information
+    if not text:
+        return info
 
-    # Initiate with blank defaults
-    information = ElementInformation()
+    is_section = element.type in (ElementType.SECTION, ElementType.ALTERNATION_SECTION)
+    has_index = not is_section and bool(re.search(r'\d', text.split(":")[0]))
 
-    # Sections start at suffix; they have no prefix or index
-    current_part = InformationPart.SUFFIX \
-        if element.type in [ElementType.SECTION, ElementType.ALTERNATION_SECTION] \
-        else InformationPart.PREFIX
+    if has_index:
+        m = _ATOMIC_RE.match(text)
+        info.prefix = m.group(1) or ""
+        info.index_string = m.group(2) or ""
+        info.suffix = m.group(3) or ""
+        if m.group(4):
+            info.repetition = int(m.group(4))
+        info.arg_source = m.group(5) or ""
+    else:
+        m = _SECTION_RE.match(text)
+        info.suffix = m.group(1) or ""
+        if m.group(2):
+            info.repetition = int(m.group(2))
+        info.arg_source = m.group(3) or ""
 
-    # Return blank when no information string is provided
-    if element.information == "":
-        return information
-
-    cursor = Cursor(element.information)
-
-    NUMBERS = "0123456789"
-
-    while True:
-        match current_part:
-            case InformationPart.PREFIX:
-
-                before_colon = element.information.split(":")[0]
-                smol_cursor = Cursor(before_colon)
-
-                if not smol_cursor.contains_any(NUMBERS):
-                    current_part = InformationPart.SUFFIX
-                    # NOTE: Implicit straight-to-suffix on no number
-                    # Below is the error we used to throw:
-                    #raise Exception("Malformed input - element information has no index: " + element.information)
-                else:
-
-                    until_number = cursor.get_until(NUMBERS)
-                    information.prefix = until_number
-
-                    # NOTE: Cursor weakness - if first character matches get_until we don't stop "before it"
-                    if cursor.get() not in NUMBERS:
-                        cursor.next()
-
-                    current_part = InformationPart.INDEX
-
-            case InformationPart.INDEX:
-                information.index_string = cursor.get_until("0123456789", False)
-
-                # NOTE: Again, cursor weakness
-                if cursor.get() in NUMBERS:
-                    cursor.next()
-
-                current_part = InformationPart.SUFFIX
-
-            case InformationPart.SUFFIX:
-
-                remaining = cursor.get_remaining()
-
-                star_index = remaining.find("*")
-                colon_index = remaining.find(":")
-
-                # Since * can appear inside args, we need to check for it before arg declaration
-                star_present = star_index != -1 and (star_index < colon_index or colon_index == -1)
-
-                if star_present:
-                    information.suffix = cursor.get_until("*")
-                    cursor.move_past_next("*")
-                    current_part = InformationPart.REPETITION
-                elif ":" in remaining:
-                    information.suffix = cursor.get_until(":")
-                    cursor.move_past_next(":")
-                    current_part = InformationPart.ARGS
-                else:
-                    information.suffix = remaining
-                    break
-
-            case InformationPart.REPETITION:
-                remaining = cursor.get_remaining()
-                if ":" in remaining:
-                    information.repetition = int(cursor.get_until(":"))
-                    cursor.move_past_next(":")
-                    current_part = InformationPart.ARGS
-                elif remaining != "":
-                    information.repetition = int(remaining)
-                    break
-
-            case InformationPart.ARGS:
-                if not cursor.is_done():
-                    information.arg_source = cursor.get_remaining()
-
-                break
-
-            case _:
-                # Shouldn't happen but w/e
-                break
-
-    return information
+    return info
 
 @dataclass
 class DynamicArg:
@@ -136,66 +55,28 @@ class DynamicArg:
     operator: str = ""
     other_arg_reference: str = ""
 
-# Parse 1.0,arg+2,argb*2.0,argc0.2 [...] part of element info suffix
-# Aliases, provided as {alias:name}, changes <alias> into <name> where
-#   keys match.
-def parse_args(arg_source, aliases: dict = {}) -> dict:
+_ARG_RE = re.compile(r'^([^0-9+*=-]*)([-+*=]?)([\d.]+)([a-zA-Z]+)?$')
 
+def parse_args(arg_source, aliases={}):
     args = {}
-
-    cursor = Cursor(arg_source)
-    while True:
-        # Step on separator at a time
-        content = cursor.get_until(",")
-
-        sub_cursor = Cursor(content)
-        # Numbers or operators break the key part
-        # TODO: Consider ".2" shorthand support
-        non_numeric = sub_cursor.get_until("0123456789+-*=")
-
-        # Step into the numeric part of the string unless it began immediately
-        if sub_cursor.peek() != "" and non_numeric != "":
-            sub_cursor.next()
-
-        value_part = sub_cursor.get_remaining()
-
-        if value_part != "":
-
-            actual_value = "".join(value_part[1:]) if value_part[0] in "+-*=" else value_part
-            sym = value_part[0] if value_part[0] in "+-*=" else ""
-
-            # Find letter arg reference suffix after numerical part
-            lil_cursor = Cursor(actual_value)
-            # TODO: I mean "get until not" would of course be more intuitive
-            # ... but we should replace this whole thing with regex eventually
-            num_value = lil_cursor.get_until("abcdefghijklmnopqrstuvxyz")
-            ref_part = ""
-            if lil_cursor.peek() != "" and num_value != "":
-                lil_cursor.next()
-                # As in: sus1.0relT -> relT
-                ref_part = lil_cursor.get_remaining()
-
-            print("PARSING NUMBER", num_value, "in string", arg_source)
-            numeric_decimal = Decimal(num_value)
-
-            new_arg = DynamicArg(numeric_decimal, sym, ref_part)
-
-            if non_numeric == "":
-                if len(args) == 0:
-                    # TODO: Some other way to provide this default
-                    # First arg is "time" unless otherwise noted
-                    args["time"] = new_arg
-                else:
-                    raise Exception("Malformed input: unnamed non-first arg")
+    for part in arg_source.split(","):
+        if not part:
+            continue
+        m = _ARG_RE.match(part)
+        if not m:
+            raise Exception(f"Malformed arg: {part}")
+        key = m.group(1)
+        op = m.group(2) or ""
+        num_str = m.group(3)
+        ref = m.group(4) or ""
+        value = Decimal(num_str)
+        arg = DynamicArg(value, op, ref)
+        if not key:
+            if not args:
+                args["time"] = arg
             else:
-                # Apply alias
-                if non_numeric in aliases:
-                    non_numeric = aliases[non_numeric]
-
-                args[non_numeric] = new_arg
-
-        cursor.move_past_next(",")
-        if cursor.is_done():
-            break
-
+                raise Exception("Malformed input: unnamed non-first arg")
+        else:
+            key = aliases.get(key, key)
+            args[key] = arg
     return args

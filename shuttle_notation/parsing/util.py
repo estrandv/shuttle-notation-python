@@ -60,7 +60,6 @@ class TreeExpander:
     # Expand both alternations and repeats
     def expand(self, element, repeat) -> list:
 
-        #print("EXPANDING: ", element.decompile(), " ", element.type, len(element.elements))
 
         if element.type == ElementType.ATOMIC:
             self.tick(element)
@@ -192,7 +191,6 @@ def resolve_full_arguments(
                 # First check if value should refer to another
                 if history_arg.other_arg_reference != "":
 
-                    print("REFERENCE YO", history_arg.other_arg_reference)
                     # Reference the final resolved value of the other arg
                     other_arg_value = resolved_args[history_arg.other_arg_reference]
 
@@ -234,8 +232,7 @@ def resolve_full_arguments(
 
     unresolved_args = [arg_name for arg_name in per_arg_history if arg_name not in resolved_args]
     if len(unresolved_args) > 0:
-        print("ERROR: Some args could not resolve, circular references?", unresolved_args)
-        exit(1)
+        raise Exception(f"Some args could not resolve, circular references? {unresolved_args}")
 
     return resolved_args
 

@@ -23,7 +23,6 @@ class Parser:
         top_element = self._get_backend().parse(source_string)
         tree = util.TreeExpander()
         sequence = tree.tree_expand(top_element)
-        print("FULL TIHNG: ", source_string)
         return [self.resolve(e) for e in sequence]
 
     def resolve(self, element: Element) -> ResolvedElement:

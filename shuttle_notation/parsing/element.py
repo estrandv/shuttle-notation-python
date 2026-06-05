@@ -26,11 +26,6 @@ class Element:
         self.type = ElementType.ATOMIC
         self.parent = None
 
-    def add(self):
-        self.elements.append(Element())
-        self.elements[-1].parent = self 
-        return self.elements[-1]
-
     # Attempt at reconstructing the contents of the element as a parseable string. 
     # Writes the string as interpreted, not as originally written, and will thus have
     #   implied sections written out explicitly.
