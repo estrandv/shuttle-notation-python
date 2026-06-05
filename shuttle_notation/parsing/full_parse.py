@@ -8,13 +8,20 @@ from decimal import Decimal
 
 class Parser:
     def __init__(self):
+        self._backend = None
         # provided as alias:realname
         self.arg_aliases = {}
         self.arg_defaults = {}
 
+    def _get_backend(self):
+        if self._backend is None:
+            from shuttle_notation.parsing.tree_sitter_backend import TreeSitterBackend
+            self._backend = TreeSitterBackend()
+        return self._backend
+
     def parse(self, source_string: str) -> list[ResolvedElement]:
         # Run the whole intended sequence of parsing, from source to final elements
-        top_element = section_parsing.build_tree(source_string)
+        top_element = self._get_backend().parse(source_string)
         tree = util.TreeExpander()
         sequence = tree.tree_expand(top_element)
         print("FULL TIHNG: ", source_string)
