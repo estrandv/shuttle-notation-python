@@ -1,67 +1,46 @@
 # Shuttle Notation
-Shuttle Notation is a shorthand script for defining sequential data,
-	with a similar purpose to sheet music.
 
-Shuttle Notation was designed to:
-1. Define sequences of varying complexity quickly, in simple text strings; be easy to type.
-2. Contain as much information as possible, for each individial element, without becoming hard to read.
-3. Define purpose-agnotic (but always sequential) data, that can be used in several different contexts.
+A Python library for parsing and manipulating Shuttle Notation — a shorthand DSL for defining sequential data with rich metadata: indices, named arguments, alternations, repetition, and section inheritance.
 
-The main use case is for musical note sequencing, for which the following core features were
-    introduced:
-1. Syntax for sequences that alternate with each iteration.
-2. Syntax for repeated elements in sequences.
-3. User-defined, named, numerical arguments for each element in each sequence (such as "amplitude").
-4. Integer-based indices as the defining data of each element in
-        each sequence (such as note numbers in a scale).
+Designed primarily for musical note sequencing (think typed sheet music), but purpose-agnostic.
 
-A simple example, denoting a series of notes of the same length with no particular user configuration,
-    might look like this: "c4 c4 g4 d4" or like this "1 2 1 2 3".
+## Example
 
-A more advanced example can instead look like this:
-    "c3:sus3.4 c3:0.5 (a3 / b3:+sus1 / f3 / g3)x2:0.5sus0.2".
+```
+c3:sus3.4 c3:0.5 (a3 / b3:+sus1 / f3 / g3)x2:0.5sus0.2
+```
 
-This file will give a short introduction to the different functions and elements of Shuttle Notation.
+## Architecture
 
-## The Atomic Element
+- **`shuttle_notation.parsing.tree_sitter_backend`** — CST-based parser using the tree-sitter grammar (`tree-sitter-shuttle-notation` published as a pip package). Produces an `Element` tree from source text.
+- **`shuttle_notation.parsing.element`** — Core data model: `Element` (with type `ATOMIC`, `SECTION`, `ALTERNATION_SECTION`), `ResolvedElement` (with resolved children), and `ElementType`.
+- **`shuttle_notation.parsing.full_parse`** — High-level `Parser` that wraps the tree-sitter backend and resolves information strings into structured `Information` objects (indices, args, aliases).
+- **`shuttle_notation.parsing.information_parsing`** — Parses the `:info` suffix string into structured data (indices, named args, repeats, overrides).
+- **`shuttle_notation.parsing.util`** — Utilities for expanding alternation trees into flat histories and applying arg defaults/aliases.
 
-The smallest piece in a shuttle notation sequence is the Atomic Element, which represents a single, timed entry
-    in the sequence. At its most simple, it can be a single character: 
+## Dependencies
 
->"c"
+- [tree-sitter-shuttle-notation](https://pypi.org/project/tree-sitter-shuttle-notation/) (PyPI) — the canonical tree-sitter grammar
+- [tree-sitter](https://tree-sitter.github.io/) Python bindings (>=0.25,<0.26)
 
-Atomic elements are separated by space. The following string has four Atomic Elements: 
+## Usage
 
->"a b c d"
+```python
+from shuttle_notation import Parser
 
+parser = Parser()
+result = parser.parse("c4 d4 e4 f4")
+# result is a ResolvedElement tree
+```
 
+## Tests
 
+```bash
+cd shuttle-notation-python
+~/mypython/bin/python -m pytest
+```
 
+## Spec / Grammar
 
-## Arguments & Time
-TODO
-
-## Sections & Shared Data
-TODO
-
-### Relative Arguments
-TODO
-
-## Alternations
-TODO
-
-## Repetition
-TODO
-
-## Interpretation & Implementation
-TODO
-
-## Development Notes
-
-The parser uses [tree-sitter](https://tree-sitter.github.io/) for parsing. The grammar lives in
-the separate [tree-sitter-shuttle-notation](https://github.com/estrandv/tree-sitter-shuttle-notation) repo.
-The compiled C source (`parser.c` and headers) is vendored under `shuttle_notation/vendor/` so the package
-is self-contained for pip install. When updating the grammar, copy the new sources from that repo.
-
-**Long-term**: The grammar should be published as a pip package (e.g. `tree-sitter-shuttle-notation`)
-so it can be listed as a regular dependency instead of vendored.
+The canonical language specification lives in the grammar repo:
+- [tree-sitter-shuttle-notation](https://github.com/estrandv/tree-sitter-shuttle-notation)
