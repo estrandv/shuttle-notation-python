@@ -175,6 +175,7 @@ def parse_args(arg_source, aliases: dict = {}) -> dict:
                 # As in: sus1.0relT -> relT
                 ref_part = lil_cursor.get_remaining()
 
+            print("PARSING NUMBER", num_value, "in string", arg_source)
             numeric_decimal = Decimal(num_value)
 
             new_arg = DynamicArg(numeric_decimal, sym, ref_part)
