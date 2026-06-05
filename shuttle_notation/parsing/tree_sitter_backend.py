@@ -1,64 +1,13 @@
-import ctypes
-import os
-import subprocess
-import tempfile
-from pathlib import Path
-
 from tree_sitter import Language, Parser, Node
+from tree_sitter_tree_sitter_shuttle_notation import language as _shuttle_language
 
 from shuttle_notation.parsing.element import Element, ElementType
-
-_PACKAGE_DIR = Path(__file__).resolve().parent.parent
-_VENDOR_DIR = _PACKAGE_DIR / "vendor"
-_SIBLING_DIR = _PACKAGE_DIR.parent.parent / "tree-sitter-shuttle-notation" / "src"
-_SO_PATH = _PACKAGE_DIR / "shuttle.so"
-
-
-def _find_parser_source():
-    vendored = _VENDOR_DIR / "parser.c"
-    if vendored.exists():
-        return vendored, str(_VENDOR_DIR)
-    sibling = _SIBLING_DIR / "parser.c"
-    if sibling.exists():
-        return sibling, str(_SIBLING_DIR)
-    raise RuntimeError(
-        "Could not find tree-sitter-shuttle-notation parser source. "
-        "Expected either vendored at shuttle_notation/vendor/parser.c "
-        "or sibling tree-sitter-shuttle-notation/src/parser.c"
-    )
-
-
-def _build_shared_lib():
-    if _SO_PATH.exists():
-        return str(_SO_PATH)
-    parser_c, include_dir = _find_parser_source()
-    result = subprocess.run(
-        [
-            "cc", "-shared", "-fPIC", "-o", str(_SO_PATH),
-            str(parser_c),
-            f"-I{include_dir}",
-        ],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to build shuttle parser: {result.stderr}")
-    return str(_SO_PATH)
-
-
-def _load_language():
-    lib_path = _build_shared_lib()
-    lib = ctypes.CDLL(lib_path)
-    func = lib.tree_sitter_shuttle
-    func.restype = ctypes.c_void_p
-    ptr = func()
-    return Language(ptr)
 
 
 class TreeSitterBackend:
     def __init__(self):
-        self._lang = _load_language()
         self._parser = Parser()
-        self._parser.language = self._lang
+        self._parser.language = Language(_shuttle_language())
 
     def parse(self, source_string: str) -> Element:
         tree = self._parser.parse(source_string.encode("utf-8"))
