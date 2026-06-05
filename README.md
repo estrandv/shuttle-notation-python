@@ -55,3 +55,13 @@ TODO
 
 ## Interpretation & Implementation
 TODO
+
+## Development Notes
+
+The parser uses [tree-sitter](https://tree-sitter.github.io/) for parsing. The grammar lives in
+the separate [tree-sitter-shuttle-notation](https://github.com/estrandv/tree-sitter-shuttle-notation) repo.
+The compiled C source (`parser.c` and headers) is vendored under `shuttle_notation/vendor/` so the package
+is self-contained for pip install. When updating the grammar, copy the new sources from that repo.
+
+**Long-term**: The grammar should be published as a pip package (e.g. `tree-sitter-shuttle-notation`)
+so it can be listed as a regular dependency instead of vendored.
