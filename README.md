@@ -59,9 +59,10 @@ TODO
 ## Development Notes
 
 The parser uses [tree-sitter](https://tree-sitter.github.io/) for parsing. The grammar lives in
-the separate [tree-sitter-shuttle-notation](https://github.com/estrandv/tree-sitter-shuttle-notation) repo.
-The compiled C source (`parser.c` and headers) is vendored under `shuttle_notation/vendor/` so the package
-is self-contained for pip install. When updating the grammar, copy the new sources from that repo.
+the separate [tree-sitter-shuttle-notation](https://github.com/estrandv/tree-sitter-shuttle-notation) repo
+and is installed as a pip dependency (`tree-sitter-tree-sitter-shuttle-notation`).
 
-**Long-term**: The grammar should be published as a pip package (e.g. `tree-sitter-shuttle-notation`)
-so it can be listed as a regular dependency instead of vendored.
+When updating the grammar:
+1. Run `pip install -e ../tree-sitter-shuttle-notation` (or from wherever the grammar repo is)
+   to update the installed package with your local changes.
+2. Run the tests to verify nothing broke.
