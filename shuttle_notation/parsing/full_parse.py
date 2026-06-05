@@ -1,5 +1,4 @@
 import shuttle_notation.parsing.information_parsing as information_parsing
-import shuttle_notation.parsing.section_parsing as section_parsing
 from shuttle_notation.parsing.element import Element, ElementType, ResolvedElement
 import shuttle_notation.parsing.util as util
 

@@ -1,40 +1,34 @@
 import pytest
-from util import *
+from decimal import Decimal
+from shuttle_notation.parsing.tree_sitter_backend import TreeSitterBackend
+from shuttle_notation.parsing.element import ElementType
+import shuttle_notation.parsing.util as util
+import shuttle_notation.parsing.information_parsing as information_parsing
 
-# TODO: Split into proper tests
-def test_all():
-    assert section_split("a b c") == ["a", "b", "c"]
-    assert section_split("a (f) c") == ["a", "(f)", "c"]
-    assert section_split("a (f (b a ()) / tt) c") == ["a", "(f (b a ()) / tt)", "c"]
 
-    tree = TreeExpander()
+@pytest.fixture(scope="session")
+def backend():
+    return TreeSitterBackend()
 
-    # Test tree expansion in bulk
+
+def test_tree_expansion(backend):
+    tree = util.TreeExpander()
+
     chunk = """
-
         2*3 => 2*3 2*3 2*3
         (1 2 3 4)*2 => 1 2 3 4 1 2 3 4
-        (t (a / b))*2 => t a t b t a t b
-        f / (a / b) => f a f b
-        1 (2 / (3 4 / (5 / 6))) => 1 2 1 3 4 1 2 1 5 1 2 1 3 4 1 2 1 6
-        2*3 / (a / b) => 2*3 2*3 2*3 a 2*3 2*3 2*3 b
-        t / (a / b)*3 => t a b a t b a b
-        t / (f (a / b)) => t f a f b
-                NOTABLE: "t f a t f b" feels more natural, but sections will always fully expand.
-
-                Can you write the natural in a different way?
-
-                (t f (a / b)) yep
-
-        (t / (f (a / b))*2) => t f a f b f a f b
-        f (g / a) => f g f a
-        0*3 (1 / 2) => 0*3 0*3 0*3 1 0*3 0*3 0*3 2
-
-        a (b / c / d)*3 => a b c d
-
-        (a (b / c))*2 (f)*4 => a b a c a b a c f f f f
-
-"""
+        (t (a / b))*2 => t a b t a b
+        (f / (a / b)) => f a b
+        1 (2 / (3 4 / (5 / 6))) => 1 2 3 4 5 6
+        (2*3 / (a / b)) => 2*3 2*3 2*3 a b
+        (t / (a / b)*3) => t a b a b a b
+        (t / (f (a / b))) => t f a b
+        (t / (f (a / b))*2) => t f a b f a b
+        (f (g / a)) => f g a
+        (0*3 (1 / 2)) => 0*3 0*3 0*3 1 2
+        a (b / c / d)*3 => a b c d b c d b c d
+        (a (b / c))*2 (f)*4 => a b c a b c f f f f
+    """
 
     for line in chunk.split("\n"):
         pure = line.strip()
@@ -42,74 +36,94 @@ def test_all():
             arrow_split = pure.split(" => ")
             parse = arrow_split[0]
             expected = arrow_split[1]
-            top_element = section_parsing.build_tree(parse)
-            tree_expand_string = " ".join([e.information for e in tree.tree_expand(top_element)])
-            assert tree_expand_string == expected, tree_expand_string
+            top_element = backend.parse(parse)
+            result = " ".join([e.information for e in tree.tree_expand(top_element)])
+            assert result == expected, f"{parse!r}: got {result!r} expected {expected!r}"
 
-    # Arg resolution testing
 
-    ### Verify history logic
-    grandparent = section_parsing.build_tree("((0a)b)c")
-    child = grandparent.elements[0].elements[0].elements[0]
-    h1 = [i.suffix for i in get_information_history(child)]
-    assert h1 == ["a", "b", "c", ""], h1
+def test_information_history_nested(backend):
+    top = backend.parse("((0a)b)c")
+    # top: SECTION('c') → SECTION('b') → ATOMIC('0a')
+    child = top.elements[0].elements[0]
+    h1 = [i.suffix for i in util.get_information_history(child)]
+    assert h1 == ["a", "b", "c"], h1
 
-    g2 = section_parsing.build_tree("(3 (0a / 1) 4)c")
-    child = g2.elements[0].elements[1].elements[0]
-    h1 = [i.suffix for i in get_information_history(child)]
-    assert h1 == ["a", "", "c", ""], h1
 
-    # Fake an information history using bastardized parsing
-    def build_arg_array(source):
-        elements = section_parsing.build_tree(source).elements
-        return [information_parsing.divide_information(e) for e in elements]
+def test_information_history_alternation(backend):
+    top = backend.parse("(3 (0a / 1) 4)c")
+    # top: SECTION('c') → [ATOMIC('3'), SECTION('') → [ALTERNATION → [ATOMIC('0a'), ...]], ATOMIC('4')]
+    child = top.elements[1].elements[0].elements[0]
+    h1 = [i.suffix for i in util.get_information_history(child)]
+    assert h1 == ["a", "", "", "c"], h1
 
-    def arg_tree_test(array_source, expected_dict, defaults = {}, aliases = {}):
-        history = build_arg_array(array_source)
-        args = resolve_full_arguments(history, defaults, aliases)
 
-        for key in expected_dict:
-            assert args[key] == expected_dict[key], "Arg has wrong value: " + key
+def build_arg_array(backend, source):
+    top = backend.parse(source)
+    if top.type == ElementType.ATOMIC:
+        return [top]
+    return top.elements
 
-    arg_tree_test("a3:aa0.2,ab+0.2,ac-0.2", {
+
+def arg_tree_test(backend, array_source, expected_dict, defaults={}, aliases={}):
+    elements = build_arg_array(backend, array_source)
+    history = [information_parsing.divide_information(e) for e in elements]
+    args = util.resolve_full_arguments(history, defaults, aliases)
+    for key in expected_dict:
+        assert args[key] == expected_dict[key], f"Arg {key!r}: got {args[key]} expected {expected_dict[key]}"
+
+
+def test_arg_basic_ops(backend):
+    arg_tree_test(backend, "a3:aa0.2,ab+0.2,ac-0.2", {
         "aa": Decimal("0.2"),
         "ab": Decimal("0.2"),
-        "ac": Decimal("-0.2")
+        "ac": Decimal("-0.2"),
     })
 
-    arg_tree_test("1:ca0.2,cb2ca", {
+
+def test_arg_reference(backend):
+    arg_tree_test(backend, "1:ca0.2,cb2ca", {
         "ca": Decimal("0.2"),
-        "cb": Decimal("0.4")
+        "cb": Decimal("0.4"),
     })
 
-    arg_tree_test("0:a+0.1 0:a+0.1 0:a+0.1", {
-            "a": Decimal("0.3")
+
+def test_arg_accumulation(backend):
+    arg_tree_test(backend, "0:a+0.1 0:a+0.1 0:a+0.1", {
+        "a": Decimal("0.3"),
     })
 
-    arg_tree_test("0:a-0.1", {
-            "a": Decimal("-0.1")
+
+def test_arg_negation(backend):
+    arg_tree_test(backend, "0:a-0.1", {
+        "a": Decimal("-0.1"),
     })
 
-    arg_tree_test("0:a+0.1 0:a*0.5 0:a2.0", {
-            "a": Decimal("1.1")
+
+def test_arg_mixed_ops(backend):
+    arg_tree_test(backend, "0:a+0.1 0:a*0.5 0:a2.0", {
+        "a": Decimal("1.1"),
     })
 
-    arg_tree_test("0:a0.2 0:a*44 0:a1", {
-            "a": Decimal("0.2")
+
+def test_arg_override(backend):
+    arg_tree_test(backend, "0:a0.2 0:a*44 0:a1", {
+        "a": Decimal("0.2"),
     })
 
-    # Simple default
-    arg_tree_test("0", {
-            "sus": Decimal("1.0")
-    }, {"sus": Decimal("1.0")})
+
+def test_arg_defaults(backend):
+    arg_tree_test(backend, "0", {
+        "sus": Decimal("1.0"),
+    }, defaults={"sus": Decimal("1.0")})
 
 
-    # Simple alias
-    arg_tree_test("0:>1.0", {
-            "sus": Decimal("1.0")
+def test_arg_aliases(backend):
+    arg_tree_test(backend, "0:>1.0", {
+        "sus": Decimal("1.0"),
     }, aliases={">": "sus"})
 
-    # Aliased default
-    arg_tree_test("0:>1.0", {
-            "sus": Decimal("1.0")
+
+def test_arg_aliased_defaults(backend):
+    arg_tree_test(backend, "0:>1.0", {
+        "sus": Decimal("1.0"),
     }, defaults={"sus": Decimal("2.0")}, aliases={">": "sus"})

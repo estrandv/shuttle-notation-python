@@ -1,44 +1,8 @@
 from shuttle_notation.parsing.element import ElementType, Element
-from shuttle_notation.parsing.cursor import Cursor
-import shuttle_notation.parsing.section_parsing as section_parsing
 import shuttle_notation.parsing.information_parsing as information_parsing
 
 from decimal import Decimal
 from shuttle_notation.parsing.information_parsing import DynamicArg
-
-# "Business logic" - explain later
-def section_split(source_string) -> list:
-    cursor = Cursor(source_string)
-
-    opened_parentheses = 0
-
-    everything = []
-
-    current = ""
-
-    while not cursor.is_done():
-        match cursor.get():
-            case "(":
-                current += cursor.get()
-                opened_parentheses += 1
-            case ")":
-                current += cursor.get()
-                opened_parentheses -= 1
-            case " ":
-                if opened_parentheses == 0:
-                    if current != "":
-                        everything.append(current)
-                    current = ""
-                else:
-                    current += cursor.get()
-            case _:
-                current += cursor.get()
-        cursor.next()
-
-    if current != "":
-        everything.append(current)
-
-    return everything
 
 class TreeExpander:
 
@@ -76,8 +40,7 @@ class TreeExpander:
 
         full = []
 
-        # NOTE: Workaround. Parsing correctly assumes top level to be an alternation if it contains "/", but recursive logic
-        #   expects top level to be a regular section.
+        # Wrap in a SECTION so that repeats and alternations on the root element get processed.
         top_section = Element()
         top_section.type = ElementType.SECTION
         top_section.elements = [element]
@@ -276,70 +239,3 @@ def resolve_full_arguments(
 
     return resolved_args
 
-
-# TODO: Delete after we are fully confident in the new method
-def resolve_full_arguments_old(
-    information_history: list,
-    default_args: dict = {}, # {str:Decimal}, treated as topmost args
-    arg_aliases: dict = {} # {str:str}, see parse_args()
-) -> dict:
-
-
-    all_arg_dicts = []
-
-    # Walk to the top parent, collecting all argument dicts along the way.
-    for info in information_history:
-        if info.arg_source != "":
-            args = information_parsing.parse_args(info.arg_source, arg_aliases)
-            all_arg_dicts.append(args)
-
-    # Append the default args as root
-    dyn_default_args = {}
-    for key in default_args:
-        dyn_default_args[key] = information_parsing.DynamicArg(Decimal(default_args[key]))
-    all_arg_dicts.append(dyn_default_args)
-
-    # Reverse priority order; begin with topmost/root args and process bottom/note-specific args last.
-    all_arg_dicts.reverse()
-
-    # Non-dynamic args; dict of <str,Decimal>
-    resolved_args = {}
-
-    for arg_dict in all_arg_dicts:
-        for dynamic_arg_key in arg_dict:
-            dynamic_arg = arg_dict[dynamic_arg_key]
-            # Arg not referencing other arg (do those on second pass-through)
-            if dynamic_arg.other_arg_reference == "":
-                # Reasoning: Arg present at a higher level and can be modified
-                if dynamic_arg_key in resolved_args:
-                    match dynamic_arg.operator:
-                        case "*":
-                            resolved_args[dynamic_arg_key] *= dynamic_arg.value
-                        case "+":
-                            resolved_args[dynamic_arg_key] += dynamic_arg.value
-                        case "-":
-                            resolved_args[dynamic_arg_key] *= dynamic_arg.value
-                        case _:
-                            # Blank or unknown operator should overwrite
-                            resolved_args[dynamic_arg_key] = dynamic_arg.value
-                else:
-                    # Introduce without any operators if no higher level version exists
-
-                    # Note that a negation operator can also just mean a flat negative
-                    flat_value = dynamic_arg.value * -1 if dynamic_arg.operator == "-" else dynamic_arg.value
-                    resolved_args[dynamic_arg_key] = flat_value
-
-    # Second pass: Only process reference args
-    for arg_dict in all_arg_dicts:
-        for dynamic_arg_key in arg_dict:
-            dynamic_arg = arg_dict[dynamic_arg_key]
-            # Arg has a reference to another arg value that has been registered
-            if dynamic_arg.other_arg_reference != "" and dynamic_arg.other_arg_reference in resolved_args:
-
-                """
-                    Note: referencing currently ignores operators as that's a whole other bag of worms.
-                        - sus1.0time always means "sus should be (1.0 * the resolved value of time)"
-                """
-                resolved_args[dynamic_arg_key] = resolved_args[dynamic_arg.other_arg_reference] * dynamic_arg.value
-
-    return resolved_args
