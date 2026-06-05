@@ -7,7 +7,7 @@ authors = [{ name = "Emil Strandvik" }]
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 classifiers = ["License :: OSI Approved :: Apache Software License"]
-dependencies = []
+dependencies = ["tree-sitter>=0.25,<0.26"]
 
 # Allows tests to import from lower dirs without prefixing the main module
 [tool.pytest.ini_options]
