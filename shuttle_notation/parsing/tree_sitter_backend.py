@@ -8,20 +8,35 @@ from tree_sitter import Language, Parser, Node
 
 from shuttle_notation.parsing.element import Element, ElementType
 
-_PARSER_DIR = Path(__file__).resolve().parent.parent.parent
-_GRAMMAR_DIR = Path(__file__).resolve().parent.parent.parent.parent / "tree-sitter-shuttle-notation"
-_SRC_DIR = _GRAMMAR_DIR / "src"
-_SO_PATH = _PARSER_DIR / "shuttle_notation" / "shuttle.so"
+_PACKAGE_DIR = Path(__file__).resolve().parent.parent
+_VENDOR_DIR = _PACKAGE_DIR / "vendor"
+_SIBLING_DIR = _PACKAGE_DIR.parent.parent / "tree-sitter-shuttle-notation" / "src"
+_SO_PATH = _PACKAGE_DIR / "shuttle.so"
+
+
+def _find_parser_source():
+    vendored = _VENDOR_DIR / "parser.c"
+    if vendored.exists():
+        return vendored, str(_VENDOR_DIR)
+    sibling = _SIBLING_DIR / "parser.c"
+    if sibling.exists():
+        return sibling, str(_SIBLING_DIR)
+    raise RuntimeError(
+        "Could not find tree-sitter-shuttle-notation parser source. "
+        "Expected either vendored at shuttle_notation/vendor/parser.c "
+        "or sibling tree-sitter-shuttle-notation/src/parser.c"
+    )
 
 
 def _build_shared_lib():
     if _SO_PATH.exists():
         return str(_SO_PATH)
+    parser_c, include_dir = _find_parser_source()
     result = subprocess.run(
         [
             "cc", "-shared", "-fPIC", "-o", str(_SO_PATH),
-            str(_SRC_DIR / "parser.c"),
-            f"-I{_SRC_DIR}",
+            str(parser_c),
+            f"-I{include_dir}",
         ],
         capture_output=True, text=True,
     )
