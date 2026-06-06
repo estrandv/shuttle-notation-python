@@ -11,8 +11,10 @@ class TreeSitterBackend:
     def __init__(self):
         self._parser = Parser()
         self._parser.language = _SHUTTLE_LANG
+        self._source_lines: list[str] = []
 
     def parse(self, source_string: str) -> Element:
+        self._source_lines = source_string.splitlines(keepends=True)
         tree = self._parser.parse(source_string.encode("utf-8"))
         root = tree.root_node
         return self._build_element_tree(root)
@@ -24,6 +26,30 @@ class TreeSitterBackend:
     @staticmethod
     def _pos_str(node: Node) -> str:
         return f"({node.start_point.row},{node.start_point.column})"
+
+    def _error_context(self, node: Node, context_chars: int = 40) -> str:
+        """Return ~context_chars of source text around the node."""
+        row = node.start_point.row
+        col = node.start_point.column
+        if row < len(self._source_lines):
+            line = self._source_lines[row]
+            start = max(0, col - context_chars // 2)
+            end = min(len(line), col + context_chars // 2)
+            snippet = line[start:end].rstrip("\n")
+            prefix = "..." if start > 0 else ""
+            suffix = "..." if end < len(line) else ""
+            return f"{prefix}{snippet}{suffix}"
+        return ""
+
+    def _node_snippet(self, node: Node, max_chars: int = 60) -> str:
+        """Return up to max_chars of the error node's text."""
+        try:
+            text = node.text.decode()
+            if len(text) > max_chars:
+                return text[:max_chars] + "..."
+            return text
+        except Exception:
+            return "<unreadable>"
 
     # ------------------------------------------------------------------
     # Top-level dispatch
@@ -68,7 +94,9 @@ class TreeSitterBackend:
                 for c in body_children:
                     if c.type == "ERROR":
                         raise Exception(
-                            f"Malformed input at {self._pos_str(c)}"
+                            f"Malformed section body at {self._pos_str(c)}: "
+                            f"{self._node_snippet(c)!r} "
+                            f"(context: {self._error_context(c)})"
                         )
 
                 self._process_section_body(element, body_children)
@@ -125,7 +153,9 @@ class TreeSitterBackend:
 
             elif c.type == "ERROR":
                 raise Exception(
-                    f"Malformed input at {self._pos_str(c)}"
+                    f"Malformed input at {self._pos_str(c)}: "
+                    f"{self._node_snippet(c)!r} "
+                    f"(context: {self._error_context(c)})"
                 )
 
             # Skip any other node types (implicit whitespace, etc.)
@@ -157,7 +187,9 @@ class TreeSitterBackend:
                 parent.elements.append(alt)
             elif node.type == "ERROR":
                 raise Exception(
-                    f"Malformed input at {self._pos_str(node)}"
+                    f"Malformed section body at {self._pos_str(node)}: "
+                    f"{self._node_snippet(node)!r} "
+                    f"(context: {self._error_context(node)})"
                 )
 
     def _process_alternation(self, alt_element: Element, cst_node: Node):
@@ -170,7 +202,9 @@ class TreeSitterBackend:
                 current_arm.append(c)
             elif c.type == "ERROR":
                 raise Exception(
-                    f"Malformed input at {self._pos_str(c)}"
+                    f"Malformed alternation arm at {self._pos_str(c)}: "
+                    f"{self._node_snippet(c)!r} "
+                    f"(context: {self._error_context(c)})"
                 )
 
         self._flush_arm(alt_element, current_arm)

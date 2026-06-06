@@ -228,17 +228,17 @@ def test_section_trailing_raw_info(backend):
 # ------------------------------------------------------------------
 
 def test_missing_close_paren(backend):
-    with pytest.raises(Exception, match="Malformed input"):
+    with pytest.raises(Exception, match="Malformed"):
         backend.parse("(a c v")
 
 
 def test_bare_slash_inside_nested(backend):
-    with pytest.raises(Exception, match="Malformed input"):
+    with pytest.raises(Exception, match="Malformed"):
         backend.parse("(((((/)))))")
 
 
 def test_double_slash(backend):
-    with pytest.raises(Exception, match="Malformed input"):
+    with pytest.raises(Exception, match="Malformed"):
         backend.parse("a / / b")
 
 
