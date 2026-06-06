@@ -20,7 +20,14 @@ class InformationPart(Enum):
     REPETITION = 3
     ARGS = 4
 
-_ATOMIC_RE = re.compile(r'^([a-zA-Z_]*)(\d+)(.*?)(?:\*(\d+))?(?::(.*))?$')
+_ATOMIC_RE = re.compile(
+    r"^"
+    r"([^\s\d:()/*,+\-=.][^\s\d:()/*+\-=.]*)?"  # prefix
+    r"(\d*)"                                      # index
+    r"(.*?)"                                      # suffix
+    r"(?:\*(\d+))?"                               # repeat
+    r"(?::(.*))?$"                                # info
+)
 _SECTION_RE = re.compile(r'^(.*?)(?:\*(\d+))?(?::(.*))?$')
 
 def divide_information(element: Element) -> ElementInformation:

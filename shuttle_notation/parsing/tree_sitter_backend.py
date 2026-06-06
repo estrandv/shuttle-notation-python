@@ -112,6 +112,10 @@ class TreeSitterBackend:
                 element.type = ElementType.ALTERNATION_SECTION
                 self._process_alternation(element, cst_node)
 
+            case "symbol":
+                element.type = ElementType.ATOMIC
+                element.information = cst_node.text.decode()
+
             case _:
                 pass
 
@@ -134,7 +138,7 @@ class TreeSitterBackend:
         while i < len(children):
             c = children[i]
 
-            if c.type in ("note", "section"):
+            if c.type in ("note", "section", "symbol"):
                 sub = self._build_element_tree(c)
 
                 # Peek at next child: trailing ERROR *starting with ":"
@@ -177,7 +181,7 @@ class TreeSitterBackend:
 
     def _process_section_body(self, parent: Element, body_nodes: list):
         for node in body_nodes:
-            if node.type in ("note", "section"):
+            if node.type in ("note", "section", "symbol"):
                 sub = self._build_element_tree(node)
                 sub.parent = parent
                 parent.elements.append(sub)
@@ -198,7 +202,7 @@ class TreeSitterBackend:
             if c.type == "/":
                 self._flush_arm(alt_element, current_arm)
                 current_arm = []
-            elif c.type in ("note", "section"):
+            elif c.type in ("note", "section", "symbol"):
                 current_arm.append(c)
             elif c.type == "ERROR":
                 raise Exception(
